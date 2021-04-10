@@ -11,9 +11,11 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.view.View
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import kotlinx.android.synthetic.main.activity_main.*
 import okhttp3.MediaType
@@ -41,14 +43,17 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        //image/*
 
         btnSelect.setOnClickListener {
+            tvResult.text = "Area: "
             askForPermission()
         }
 
         btnSend.setOnClickListener {
+            if(photoFile != null)
             sendImage()
+            else
+                Toast.makeText(this, "Select image first.", Toast.LENGTH_SHORT).show()
         }
 
     }
@@ -56,13 +61,16 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
     private fun sendImage() {
 
         progressBar.progress = 0
+        progressBar.visibility = View.VISIBLE
         val body = UploadRequestBody(photoFile!!, "multipart/form-data", this)
 
         MyAPI().uploadImage(
             MultipartBody.Part.createFormData("image", photoFile!!.name, body)
         ).enqueue(object: Callback<Number>{
             override fun onFailure(call: Call<Number>, t: Throwable) {
-                Toast.makeText(this@MainActivity, "error: "+t.message, Toast.LENGTH_SHORT).show()
+                progressBar.progress = 0
+                progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, "Error: "+t.message, Toast.LENGTH_SHORT).show()
             }
 
             override fun onResponse(
@@ -70,12 +78,12 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
                 response: Response<Number>
             ) {
                 progressBar.progress = 100
-                Toast.makeText(this@MainActivity, "Uploaded:"+response.body()+response.code()+response.message().toString(), Toast.LENGTH_SHORT).show()
+                progressBar.visibility = View.GONE
+                Toast.makeText(this@MainActivity, "Uploaded", Toast.LENGTH_SHORT).show()
+                tvResult.text = "Area: ${response.body()}"
             }
 
         })
-
-// Toast.makeText(this@MainActivity, "error: "+t.message, Toast.LENGTH_SHORT).show()
 
     }
 
@@ -91,7 +99,7 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
             bitmap = BitmapFactory.decodeFile(photoFile!!.path)
             ivImage.setImageBitmap(bitmap)
 
-           /* val resizeOption = ImageResizeOption.Builder()
+            val resizeOption = ImageResizeOption.Builder()
                 .setImageProcessMode(ImageMode.ResizeAndCompress)
                 .setImageResolution(1280, 720)
                 .setBitmapFilter(false)
@@ -107,7 +115,7 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
                 .setOutputPath(photoFile!!.absolutePath)
                 .build()
 
-            MediaResizer.process(option)*/
+            MediaResizer.process(option)
 
             uri = Uri.fromFile(photoFile)
 
@@ -146,5 +154,13 @@ class MainActivity : AppCompatActivity(), UploadRequestBody.UploadCallback {
 
     override fun onProgressUpdate(percentage: Int) {
         progressBar.progress = percentage
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+
+        progressBar.visibility = View.GONE
+        ivImage.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.no_image))
+        tvResult.text = "Select image first."
     }
 }
